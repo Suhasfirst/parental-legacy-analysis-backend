@@ -130,7 +130,11 @@ router.get('/debug', (req, res) => {
   }
 });
 
-
+/**
+ * GET /api/analyze/report
+ * Get analysis report
+ */
+router.get('/report', (req, res) => {
   try {
     if (!cachedAnalysis) {
       return res.status(400).json({
