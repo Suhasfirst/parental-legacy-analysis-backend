@@ -9,6 +9,23 @@ function analyzeData(data) {
       return { success: false, error: 'No data provided' };
     }
 
+    // Skip header rows - check if first row looks like headers
+    let startRow = 0;
+    const firstRow = data[0];
+    if (firstRow) {
+      const values = Object.values(firstRow);
+      const hasOnlyText = values.every(v => isNaN(v) && v !== null && v !== undefined);
+      if (hasOnlyText) {
+        startRow = 1;
+      }
+    }
+
+    // Use only data rows (skip headers)
+    const dataRows = data.slice(startRow);
+    if (dataRows.length === 0) {
+      return { success: false, error: 'No data rows found after headers' };
+    }
+
     const motherData = extractFactorData(data, 'mother');
     const fatherData = extractFactorData(data, 'father');
 
@@ -24,7 +41,7 @@ function analyzeData(data) {
     let fatherValid = true;
     let grandValid = Math.abs(grandTotal - 100) < 1;
 
-    if (motherData.mode === 'fixed') {
+    if (motherData.mode === 'fixed-format') {
       motherValid = Math.abs(motherTotal - 100) < 1;
       fatherValid = Math.abs(fatherTotal - 100) < 1;
     }
@@ -83,7 +100,70 @@ function analyzeData(data) {
 function extractFactorData(data, parent) {
   const factors = {};
   
-  // Detect if this is row-based data (each row has name + mother + father values)
+  // Step 1: Find the indices of mother and father columns
+  if (data.length === 0) return { factors: {}, mode: 'empty' };
+
+  const headerRow = data[0];
+  const columnKeys = Object.keys(headerRow);
+  
+  let motherColIndex = -1;
+  let fatherColIndex = -1;
+  let nameColIndex = -1;
+  
+  // Find mother and father columns (case-insensitive, handles __EMPTY names)
+  for (let i = 0; i < columnKeys.length; i++) {
+    const key = columnKeys[i];
+    const value = String(headerRow[key]).toLowerCase().trim();
+    
+    if (value.includes('mother') || value === 'mother') {
+      motherColIndex = i;
+    }
+    if (value.includes('father') || value === 'father') {
+      fatherColIndex = i;
+    }
+    // First column with text (not __EMPTY) is likely the factor name
+    if (nameColIndex === -1 && !key.includes('__EMPTY') && !value.includes('mother') && !value.includes('father') && !value.includes('total') && !value.includes('minimum') && !value.includes('maximum')) {
+      nameColIndex = i;
+    }
+  }
+
+  // Step 2: If we found mother/father columns, use the row-based format
+  if (motherColIndex >= 0 && fatherColIndex >= 0) {
+    // Skip header row, process data rows
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+      
+      // Get factor name from the name column or first column
+      let factorName = null;
+      if (nameColIndex >= 0) {
+        factorName = row[columnKeys[nameColIndex]];
+      } else {
+        factorName = row[columnKeys[0]];
+      }
+      
+      // Skip if no factor name
+      if (!factorName || factorName === '') continue;
+      
+      // Get mother and father values
+      const motherValue = parseFloat(row[columnKeys[motherColIndex]]) || 0;
+      const fatherValue = parseFloat(row[columnKeys[fatherColIndex]]) || 0;
+      
+      // Only add if at least one has a value
+      if (motherValue > 0 || fatherValue > 0) {
+        if (parent.toLowerCase() === 'mother') {
+          factors[String(factorName).trim()] = motherValue;
+        } else if (parent.toLowerCase() === 'father') {
+          factors[String(factorName).trim()] = fatherValue;
+        }
+      }
+    }
+    
+    if (Object.keys(factors).length > 0) {
+      return { factors, mode: 'row-based-flexible' };
+    }
+  }
+
+  // Step 3: Fall back to detecting by row data (old method)
   const rowBased = data.some(row => {
     if (typeof row !== 'object' || row === null) return false;
     const keys = Object.keys(row).map(k => k.toLowerCase());
@@ -93,11 +173,8 @@ function extractFactorData(data, parent) {
   });
 
   if (rowBased) {
-    // Row-based format: each row is a factor with name and mother/father values
     for (const row of data) {
       const label = row.name || row.factor || row.category || row.label || `factor_${Object.keys(factors).length + 1}`;
-      
-      // Find the value for this parent (case-insensitive search)
       let value = 0;
       for (const [key, val] of Object.entries(row)) {
         const keyLower = key.toLowerCase();
@@ -106,14 +183,12 @@ function extractFactorData(data, parent) {
           break;
         }
       }
-      
       factors[label] = value;
     }
-
-    return { factors, mode: 'row' };
+    return { factors, mode: 'row-based' };
   }
 
-  // Fixed format: columns like mother_career, father_family, etc.
+  // Step 4: Try fixed format (mother_career, father_family, etc.)
   const lifeFactors = [
     'career', 'family', 'health', 'spirituality', 'finances', 'personal_growth', 'relationships'
   ];
@@ -132,7 +207,7 @@ function extractFactorData(data, parent) {
     factors[factor] = value;
   }
 
-  return { factors, mode: 'fixed' };
+  return { factors, mode: 'fixed-format' };
 }
 
 /**
