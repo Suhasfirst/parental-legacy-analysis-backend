@@ -1,0 +1,14 @@
+{
+  "name": "parental-legacy-frontend",
+  "version": "1.0.0",
+  "description": "Beautiful frontend for Parental Legacy Analysis API",
+  "main": "index.html",
+  "scripts": {
+    "start": "python -m http.server 8080 --directory .",
+    "dev": "python -m http.server 8080 --directory .",
+    "build": "echo 'Static site - no build required'"
+  },
+  "keywords": ["analysis", "charts", "excel", "visualization"],
+  "author": "",
+  "license": "ISC"
+}

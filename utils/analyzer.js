@@ -9,32 +9,33 @@ function analyzeData(data) {
       return { success: false, error: 'No data provided' };
     }
 
-    // Extract Mother and Father columns (adjust based on actual column names)
     const motherData = extractFactorData(data, 'mother');
     const fatherData = extractFactorData(data, 'father');
 
-    if (motherData.error || fatherData.error) {
+    if (!motherData || !fatherData || !motherData.factors || !fatherData.factors) {
       return { success: false, error: 'Could not extract mother/father data' };
     }
 
-    // Calculate totals
     const motherTotal = Object.values(motherData.factors).reduce((sum, val) => sum + val, 0);
     const fatherTotal = Object.values(fatherData.factors).reduce((sum, val) => sum + val, 0);
+    const grandTotal = Math.round((motherTotal + fatherTotal) * 1000) / 1000;
 
-    // Check if totals sum to approximately 100
-    const motherValid = Math.abs(motherTotal - 100) < 1;
-    const fatherValid = Math.abs(fatherTotal - 100) < 1;
+    let motherValid = true;
+    let fatherValid = true;
+    let grandValid = Math.abs(grandTotal - 100) < 1;
 
-    // Find highest and lowest factors
+    if (motherData.mode === 'fixed') {
+      motherValid = Math.abs(motherTotal - 100) < 1;
+      fatherValid = Math.abs(fatherTotal - 100) < 1;
+    }
+
     const motherHighest = getHighestFactor(motherData.factors);
     const motherLowest = getLowestFactor(motherData.factors);
     const fatherHighest = getHighestFactor(fatherData.factors);
     const fatherLowest = getLowestFactor(fatherData.factors);
 
-    // Compare factors
     const comparison = compareFactors(motherData.factors, fatherData.factors);
 
-    // Generate insights
     const insights = generateInsights(
       motherData.factors,
       fatherData.factors,
@@ -48,18 +49,20 @@ function analyzeData(data) {
       validation: {
         motherValid,
         fatherValid,
-        motherTotal: Math.round(motherTotal * 100) / 100,
-        fatherTotal: Math.round(fatherTotal * 100) / 100
+        grandValid,
+        motherTotal: Math.round(motherTotal * 1000) / 1000,
+        fatherTotal: Math.round(fatherTotal * 1000) / 1000,
+        grandTotal
       },
       motherData: {
         factors: motherData.factors,
-        total: Math.round(motherTotal * 100) / 100,
+        total: Math.round(motherTotal * 1000) / 1000,
         highest: motherHighest,
         lowest: motherLowest
       },
       fatherData: {
         factors: fatherData.factors,
-        total: Math.round(fatherTotal * 100) / 100,
+        total: Math.round(fatherTotal * 1000) / 1000,
         highest: fatherHighest,
         lowest: fatherLowest
       },
@@ -79,6 +82,18 @@ function analyzeData(data) {
  */
 function extractFactorData(data, parent) {
   const factors = {};
+  const rowBased = data.some(row => typeof row === 'object' && row !== null && row.hasOwnProperty('mother') && row.hasOwnProperty('father'));
+
+  if (rowBased) {
+    for (const row of data) {
+      const label = row.name || row.factor || row.category || row.label || `factor_${Object.keys(factors).length + 1}`;
+      const value = parseFloat(row[parent]) || 0;
+      factors[label] = value;
+    }
+
+    return { factors, mode: 'row' };
+  }
+
   const lifeFactors = [
     'career', 'family', 'health', 'spirituality', 'finances', 'personal_growth', 'relationships'
   ];
@@ -87,7 +102,6 @@ function extractFactorData(data, parent) {
     const key = `${parent}_${factor}`;
     let value = 0;
 
-    // Try to find the value in data
     for (const row of data) {
       if (row[key] !== undefined) {
         value = parseFloat(row[key]) || 0;
@@ -98,7 +112,7 @@ function extractFactorData(data, parent) {
     factors[factor] = value;
   }
 
-  return { factors };
+  return { factors, mode: 'fixed' };
 }
 
 /**
@@ -157,11 +171,13 @@ function generateInsights(motherFactors, fatherFactors, motherTotal, fatherTotal
   const insights = [];
   const recommendations = [];
 
+  const formatNumber = value => Math.round(value * 1000) / 1000;
+
   // Overall insights
   if (motherTotal > fatherTotal) {
-    insights.push(`Mother has a higher overall total (${motherTotal}) compared to Father (${fatherTotal}).`);
+    insights.push(`Mother has a higher overall total (${formatNumber(motherTotal)}) compared to Father (${formatNumber(fatherTotal)}).`);
   } else if (fatherTotal > motherTotal) {
-    insights.push(`Father has a higher overall total (${fatherTotal}) compared to Mother (${motherTotal}).`);
+    insights.push(`Father has a higher overall total (${formatNumber(fatherTotal)}) compared to Mother (${formatNumber(motherTotal)}).`);
   } else {
     insights.push('Both have equal overall totals.');
   }
@@ -173,10 +189,10 @@ function generateInsights(motherFactors, fatherFactors, motherTotal, fatherTotal
   for (const [factor, data] of Object.entries(comparison)) {
     if (data.winner === 'mother') {
       motherLeads++;
-      insights.push(`Mother leads in ${factor}: ${data.mother} vs ${data.father}`);
+      insights.push(`Mother leads in ${factor}: ${formatNumber(data.mother)} vs ${formatNumber(data.father)}`);
     } else if (data.winner === 'father') {
       fatherLeads++;
-      insights.push(`Father leads in ${factor}: ${data.father} vs ${data.mother}`);
+      insights.push(`Father leads in ${factor}: ${formatNumber(data.father)} vs ${formatNumber(data.mother)}`);
     }
   }
 

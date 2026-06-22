@@ -37,7 +37,17 @@ function cleanAndValidateData(data) {
   try {
     const cleaned = data.map(row => {
       return Object.keys(row).reduce((acc, key) => {
-        acc[key] = parseFloat(row[key]) || 0;
+        const value = row[key];
+        const numericValue = parseFloat(value);
+
+        if (value === null || value === undefined || value === '') {
+          acc[key] = 0;
+        } else if (!isNaN(numericValue) && typeof value !== 'object') {
+          acc[key] = numericValue;
+        } else {
+          acc[key] = value;
+        }
+
         return acc;
       }, {});
     });

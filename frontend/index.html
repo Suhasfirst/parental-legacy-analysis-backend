@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Parental Legacy Analysis - Life Factors Evaluation</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios@1.4.0/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
+            <div class="flex items-center space-x-2">
+                <div class="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                    👨‍👩‍👧 Legacy
+                </div>
+            </div>
+            <div class="text-sm text-gray-600">Life Factors Analysis</div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="max-w-7xl mx-auto px-4 py-8">
+        <!-- Header Section -->
+        <section class="text-center mb-12">
+            <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                Parental Legacy Analysis
+            </h1>
+            <p class="text-lg text-gray-600">
+                Analyze and compare life factors between mother and father to understand family dynamics
+            </p>
+        </section>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Upload Section -->
+            <div class="lg:col-span-1">
+                <div class="bg-white rounded-lg shadow-lg p-6 h-full">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">📤 Upload File</h2>
+                    
+                    <!-- Dropzone -->
+                    <div id="dropzone" class="border-2 border-dashed border-blue-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition duration-200 mb-6">
+                        <input type="file" id="fileInput" accept=".xlsx,.xls" style="display: none;">
+                        <div class="text-4xl mb-2">📊</div>
+                        <p class="text-gray-700 font-semibold">Drag Excel file here</p>
+                        <p class="text-sm text-gray-500">or click to browse</p>
+                        <p class="text-xs text-gray-400 mt-2">.xlsx or .xls files only</p>
+                    </div>
+
+                    <!-- File Info -->
+                    <div id="fileInfo" style="display: none;" class="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                        <p class="text-sm text-gray-700"><strong>File:</strong> <span id="fileName"></span></p>
+                        <p class="text-sm text-gray-700"><strong>Size:</strong> <span id="fileSize"></span></p>
+                    </div>
+
+                    <!-- Upload Button -->
+                    <button id="uploadBtn" class="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-3 px-4 rounded-lg transition duration-200 disabled:opacity-50" disabled>
+                        Upload & Analyze
+                    </button>
+
+                    <!-- Loading State -->
+                    <div id="uploadLoading" style="display: none;" class="text-center py-4">
+                        <div class="inline-block animate-spin">⚙️</div>
+                        <p class="text-gray-600 text-sm mt-2">Processing...</p>
+                    </div>
+
+                    <!-- Status Messages -->
+                    <div id="statusMessage" style="display: none;" class="mt-4 p-3 rounded-lg text-sm"></div>
+                </div>
+            </div>
+
+            <!-- Analysis Results Section -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-6">📊 Analysis Results</h2>
+                    
+                    <!-- Results Placeholder -->
+                    <div id="resultsPlaceholder" class="text-center py-12 text-gray-500">
+                        <p class="text-lg">Upload a file to see analysis results</p>
+                        <p class="text-sm mt-2">Include Excel file with life factors data</p>
+                    </div>
+
+                    <!-- Results Grid -->
+                    <div id="resultsContainer" style="display: none;">
+                        <!-- Summary Cards -->
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-gradient-to-br from-pink-100 to-pink-200 rounded-lg p-4">
+                                <p class="text-sm text-gray-700 font-semibold">Mother's Total</p>
+                                <p class="text-2xl font-bold text-pink-700" id="motherTotal">0</p>
+                            </div>
+                            <div class="bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg p-4">
+                                <p class="text-sm text-gray-700 font-semibold">Father's Total</p>
+                                <p class="text-2xl font-bold text-blue-700" id="fatherTotal">0</p>
+                            </div>
+                        </div>
+
+                        <!-- Validation Status -->
+                        <div id="validationStatus" class="mb-4"></div>
+
+                        <!-- Highest/Lowest -->
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                <p class="text-xs text-gray-600">Mother's Highest</p>
+                                <p class="text-lg font-bold text-yellow-700" id="motherHighest">-</p>
+                            </div>
+                            <div class="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                <p class="text-xs text-gray-600">Father's Highest</p>
+                                <p class="text-lg font-bold text-orange-700" id="fatherHighest">-</p>
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="flex gap-2">
+                            <button id="chartBtn" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                                📈 View Charts
+                            </button>
+                            <button id="reportBtn" class="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition">
+                                📄 Download PDF
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div id="chartsSection" style="display: none;" class="mt-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8 text-center">📊 Visualizations</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Bar Chart -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Mother vs Father Comparison</h3>
+                    <div class="relative" style="height: 300px;">
+                        <canvas id="barChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Pie Chart -->
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-bold text-gray-900 mb-4">Total Contribution</h3>
+                    <div class="relative" style="height: 300px;">
+                        <canvas id="pieChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Heatmap -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mt-8">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Factor Comparison Heatmap</h3>
+                <div class="relative" style="height: 400px;">
+                    <canvas id="heatmapChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comparison Table Section -->
+        <div id="comparisonSection" style="display: none;" class="mt-12">
+            <h2 class="text-3xl font-bold text-gray-900 mb-8 text-center">🔍 Factor-by-Factor Comparison</h2>
+            <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                <table class="w-full">
+                    <thead class="bg-gray-100 border-b">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-sm font-bold text-gray-700">Life Factor</th>
+                            <th class="px-6 py-3 text-center text-sm font-bold text-pink-600">Mother</th>
+                            <th class="px-6 py-3 text-center text-sm font-bold text-blue-600">Father</th>
+                            <th class="px-6 py-3 text-center text-sm font-bold text-gray-700">Difference</th>
+                            <th class="px-6 py-3 text-center text-sm font-bold text-gray-700">Winner</th>
+                        </tr>
+                    </thead>
+                    <tbody id="comparisonTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Insights Section -->
+        <div id="insightsSection" style="display: none;" class="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Key Insights -->
+            <div class="bg-gradient-to-br from-yellow-50 to-orange-50 rounded-lg shadow-lg p-6 border-l-4 border-yellow-500">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">💡 Key Insights</h3>
+                <ul id="insightsList" class="space-y-3"></ul>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg shadow-lg p-6 border-l-4 border-green-500">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">✨ Recommendations</h3>
+                <ul id="recommendationsList" class="space-y-3"></ul>
+            </div>
+        </div>
+
+        <!-- Detailed Breakdown Section -->
+        <div id="detailsSection" style="display: none;" class="mt-12 grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Mother's Breakdown -->
+            <div class="bg-gradient-to-br from-pink-50 to-rose-50 rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">👩 Mother's Breakdown</h3>
+                <div id="motherBreakdown" class="space-y-2"></div>
+            </div>
+
+            <!-- Father's Breakdown -->
+            <div class="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-lg shadow-lg p-6">
+                <h3 class="text-xl font-bold text-gray-900 mb-4">👨 Father's Breakdown</h3>
+                <div id="fatherBreakdown" class="space-y-2"></div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-16 text-center text-gray-600 text-sm border-t border-gray-200 pt-8">
+            <p>Parental Legacy Analysis v1.0 | Powered by Advanced Analytics</p>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
