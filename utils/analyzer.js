@@ -82,18 +82,38 @@ function analyzeData(data) {
  */
 function extractFactorData(data, parent) {
   const factors = {};
-  const rowBased = data.some(row => typeof row === 'object' && row !== null && row.hasOwnProperty('mother') && row.hasOwnProperty('father'));
+  
+  // Detect if this is row-based data (each row has name + mother + father values)
+  const rowBased = data.some(row => {
+    if (typeof row !== 'object' || row === null) return false;
+    const keys = Object.keys(row).map(k => k.toLowerCase());
+    const hasMother = keys.includes('mother') || keys.some(k => k.endsWith('_mother'));
+    const hasFather = keys.includes('father') || keys.some(k => k.endsWith('_father'));
+    return hasMother && hasFather;
+  });
 
   if (rowBased) {
+    // Row-based format: each row is a factor with name and mother/father values
     for (const row of data) {
       const label = row.name || row.factor || row.category || row.label || `factor_${Object.keys(factors).length + 1}`;
-      const value = parseFloat(row[parent]) || 0;
+      
+      // Find the value for this parent (case-insensitive search)
+      let value = 0;
+      for (const [key, val] of Object.entries(row)) {
+        const keyLower = key.toLowerCase();
+        if (keyLower === parent.toLowerCase() || keyLower === `${parent.toLowerCase()}_value`) {
+          value = parseFloat(val) || 0;
+          break;
+        }
+      }
+      
       factors[label] = value;
     }
 
     return { factors, mode: 'row' };
   }
 
+  // Fixed format: columns like mother_career, father_family, etc.
   const lifeFactors = [
     'career', 'family', 'health', 'spirituality', 'finances', 'personal_growth', 'relationships'
   ];

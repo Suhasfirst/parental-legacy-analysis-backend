@@ -21,12 +21,28 @@ router.post('/', (req, res) => {
       });
     }
 
+    // Verify file exists
+    const fs = require('fs');
+    if (!fs.existsSync(uploadedFilePath)) {
+      return res.status(400).json({
+        success: false,
+        error: `File not found at path: ${uploadedFilePath}`
+      });
+    }
+
     // Read Excel file
     const excelResult = readExcelFile(uploadedFilePath);
     if (!excelResult.success) {
       return res.status(400).json({
         success: false,
         error: 'Failed to read Excel file: ' + excelResult.error
+      });
+    }
+
+    if (!excelResult.data || excelResult.data.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Excel file is empty or has no data rows'
       });
     }
 
@@ -51,9 +67,17 @@ router.post('/', (req, res) => {
     // Cache the analysis for use in other endpoints
     cachedAnalysis = analysis;
 
+    // Check if analysis returned all zeros (possible data format issue)
+    const allZeros = analysis.validation && analysis.validation.motherTotal === 0 && analysis.validation.fatherTotal === 0;
+    
     res.json({
       success: true,
-      data: analysis
+      data: analysis,
+      ...(allZeros && {
+        warning: 'Analysis returned all zeros. Check file format. Use GET /api/analyze/debug to diagnose.',
+        columns: excelResult.columns,
+        firstRow: cleanResult.data[0]
+      })
     });
   } catch (error) {
     res.status(500).json({
@@ -64,10 +88,49 @@ router.post('/', (req, res) => {
 });
 
 /**
- * GET /api/analyze/report
- * Get analysis report
+ * GET /api/analyze/debug
+ * Debug endpoint to see what data analyzer receives
  */
-router.get('/report', (req, res) => {
+router.get('/debug', (req, res) => {
+  try {
+    const uploadedFilePath = uploadRoutes.getUploadedFilePath();
+
+    if (!uploadedFilePath) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded'
+      });
+    }
+
+    const fs = require('fs');
+    if (!fs.existsSync(uploadedFilePath)) {
+      return res.status(400).json({
+        success: false,
+        error: `File not found at: ${uploadedFilePath}`
+      });
+    }
+
+    // Read Excel file
+    const excelResult = readExcelFile(uploadedFilePath);
+    
+    res.json({
+      success: true,
+      debug: {
+        filePath: uploadedFilePath,
+        fileExists: true,
+        excelRead: excelResult,
+        rawData: excelResult.data ? excelResult.data.slice(0, 3) : null
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+
   try {
     if (!cachedAnalysis) {
       return res.status(400).json({
